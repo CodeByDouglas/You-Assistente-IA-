@@ -33,7 +33,34 @@ services:
       - postgres
       - redis
 
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin4
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: root
+    ports:
+      - "5050:80"
+    volumes:
+       - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: redisinsight
+    restart: always
+    ports:
+      - "5540:5540"
+    volumes:
+      - redis_insight_data:/data
+    depends_on:
+      - redis
+
 volumes:
   evolution_instances:
   postgres_data:
   redis_data:
+  pgadmin_data:
+  redis_insight_data:
