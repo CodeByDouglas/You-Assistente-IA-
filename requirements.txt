@@ -2,3 +2,6 @@ Django
 djangorestframework
 python-dotenv
 groq
+psycopg2-binary
+django-redis
+
