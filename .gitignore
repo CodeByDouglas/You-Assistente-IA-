@@ -26,3 +26,7 @@ ENV/
 
 # Variáveis de ambiente
 .env
+
+# Google Calendar Credentials
+token.pickle
+client_secret_*.json
