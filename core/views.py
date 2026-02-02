@@ -7,6 +7,7 @@ import datetime
 import datetime
 from groq import Groq
 from core.tools.Google_calendar.create_event import create_event
+from core.tools.Google_calendar.list_events import list_events
 
 # Create your views here.
 
@@ -53,16 +54,23 @@ Responda EXCLUSIVAMENTE com um objeto JSON válido no seguinte formato:
 {{
   "mensagem": "Sua resposta natural e útil para o usuário aqui.",
   "agendamento": true ou false,
+  "listar_agendamento": true ou false,
   "summary": "Título do evento" (se agendamento=true, senão null),
   "start_time": "YYYY-MM-DDTHH:MM:SS" (se agendamento=true, senão null),
   "end_time": "YYYY-MM-DDTHH:MM:SS" (se agendamento=true, senão null),
-  "description": "Descrição do evento" (se agendamento=true, senão null)
+  "description": "Descrição do evento" (se agendamento=true, senão null),
+  "time_min": "YYYY-MM-DDTHH:MM:SS" (se listar_agendamento=true, data de inicio da busca, senão null, se não especificado usar {current_date}),
+  "time_max": "YYYY-MM-DDTHH:MM:SS" (se listar_agendamento=true, data de fim da busca, senão null)
 }}
 
 Se for um agendamento:
 1. Extraia o título, data/hora de início e fim, e descrição.
 2. Se o usuário não fornecer horário de fim, assuma 1 hora de duração.
 3. Se o usuário não fornecer descrição, deixe vazio ou infira do contexto.
+
+Se for para listar agendamentos:
+1. Identifique o intervalo de tempo desejado pelo usuário.
+2. Defina time_min e time_max no formato ISO.
 """
 
                             chat_completion = client.chat.completions.create(
@@ -124,6 +132,77 @@ Se for um agendamento:
                                 print(
                                     f"Description: {response_json.get('description')}"
                                 )
+
+                                # Lógica para listar agendamentos
+                                if response_json.get("listar_agendamento") is True:
+                                    print(">>> Iniciando listagem de eventos...")
+                                    time_min_str = response_json.get("time_min")
+                                    time_max_str = response_json.get("time_max")
+
+                                    # Se a API não retornou time_min, usa agora
+                                    if not time_min_str:
+                                        time_min_str = (
+                                            datetime.datetime.utcnow().isoformat() + "Z"
+                                        )
+                                    # Formata para adicionar Z se faltar e garantir validade básica
+                                    # (list_events espera string ISO com timezone)
+                                    if (
+                                        time_min_str
+                                        and not time_min_str.endswith("Z")
+                                        and "+" not in time_min_str
+                                    ):
+                                        time_min_str += "Z"
+                                    if (
+                                        time_max_str
+                                        and not time_max_str.endswith("Z")
+                                        and "+" not in time_max_str
+                                    ):
+                                        time_max_str += "Z"
+
+                                    eventos_encontrados = list_events(
+                                        max_results=10,
+                                        time_min=time_min_str,
+                                        time_max=time_max_str,
+                                    )
+
+                                    if eventos_encontrados:
+                                        lista_msg = "\n\n📅 *Eventos Encontrados:*"
+                                        for evt in eventos_encontrados:
+                                            start = evt["start"].get(
+                                                "dateTime", evt["start"].get("date")
+                                            )
+                                            summary = evt.get("summary", "Sem título")
+                                            # Tenta formatar a data para ficar mais legível
+                                            try:
+                                                dt_obj = (
+                                                    datetime.datetime.fromisoformat(
+                                                        start
+                                                    )
+                                                )
+                                                start_formatted = dt_obj.strftime(
+                                                    "%d/%m %H:%M"
+                                                )
+                                            except ValueError:
+                                                start_formatted = start
+
+                                            lista_msg += (
+                                                f"\n- {start_formatted}: {summary}"
+                                            )
+
+                                        # Anexa a lista à mensagem existente
+                                        mensagem_extra = response_json.get(
+                                            "mensagem", ""
+                                        )
+                                        response_json["mensagem"] = (
+                                            f"{mensagem_extra}{lista_msg}"
+                                        )
+                                    else:
+                                        mensagem_extra = response_json.get(
+                                            "mensagem", ""
+                                        )
+                                        response_json["mensagem"] = (
+                                            f"{mensagem_extra}\n\nNenhum evento encontrado para este período."
+                                        )
 
                                 # Envio da mensagem de resposta via Evolution API
                                 mensagem_texto = response_json.get("mensagem")
