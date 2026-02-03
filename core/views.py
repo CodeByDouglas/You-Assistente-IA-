@@ -7,7 +7,9 @@ import datetime
 import datetime
 from groq import Groq
 from core.tools.Google_calendar.create_event import create_event
+from core.tools.Google_calendar.create_event import create_event
 from core.tools.Google_calendar.list_events import list_events
+from core.tools.Google_drive.drive_utils import upload_base64_file
 
 # Create your views here.
 
@@ -36,6 +38,65 @@ def webhook_evolution(request):
                     conversation = message.get("conversation") or message.get(
                         "extendedTextMessage", {}
                     ).get("text")
+
+                    # === NOVA LÓGICA: Upload de Mídia para o Google Drive ===
+                    media_types = [
+                        "imageMessage",
+                        "documentMessage",
+                        "videoMessage",
+                        "audioMessage",
+                    ]
+                    media_found = None
+                    media_type_key = None
+
+                    for m_type in media_types:
+                        if message.get(m_type):
+                            media_found = message.get(m_type)
+                            media_type_key = m_type
+                            break
+
+                    if media_found:
+                        print(f"=== MÍDIA DETECTADA: {media_type_key} ===")
+                        base64_content = media_found.get("base64") or message.get(
+                            "base64"
+                        )
+
+                        if base64_content:
+                            mimetype = media_found.get("mimetype")
+                            file_name = media_found.get("fileName")
+                            if not file_name:
+                                caption = media_found.get("caption")
+                                timestamp = datetime.datetime.now().strftime(
+                                    "%Y%m%d_%H%M%S"
+                                )
+                                ext = mimetype.split("/")[-1] if mimetype else "bin"
+                                if caption and len(caption) < 30:
+                                    safe_caption = "".join(
+                                        [
+                                            c
+                                            for c in caption
+                                            if c.isalnum() or c in (" ", "_", "-")
+                                        ]
+                                    ).strip()
+                                    file_name = f"{safe_caption}_{timestamp}.{ext}"
+                                else:
+                                    file_name = f"whatsapp_upload_{timestamp}.{ext}"
+
+                            print(
+                                f"Iniciando upload para Drive: {file_name} ({mimetype})"
+                            )
+                            file_id = upload_base64_file(
+                                base64_content, file_name, mimetype
+                            )
+
+                            if file_id:
+                                print(
+                                    f"SUCESSO: Arquivo salvo no Drive com ID: {file_id}"
+                                )
+                            else:
+                                print("FALHA: Erro ao salvar arquivo no Drive.")
+                        else:
+                            print("AVISO: Base64 não encontrado na mensagem de mídia.")
 
                     if conversation:
                         api_key = os.environ.get("API_KEY_GROQ")
@@ -255,8 +316,12 @@ Se for para listar agendamentos:
                             print("========================")
                         else:
                             print("ERRO: API_KEY_GROQ não configurada no .env")
+
                     else:
-                        print("Mensagem de texto não encontrada no payload.")
+                        if not media_found:
+                            print(
+                                "Mensagem de texto não encontrada no payload e nenhuma mídia processada."
+                            )
 
             except Exception as e:
                 print(f"Erro ao processar dados: {e}")
