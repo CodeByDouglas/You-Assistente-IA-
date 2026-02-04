@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  # IMAGE_NAME will be defined in a step to ensure it is valid
 
 jobs:
   build:
@@ -19,6 +19,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Normalize Image Name
+        run: |
+          # Convert to lowercase
+          REPO_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          # Remove trailing hyphen if present
+          REPO_NAME=${REPO_NAME%-}
+          echo "IMAGE_NAME=$REPO_NAME" >> $GITHUB_ENV
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
