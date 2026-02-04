@@ -31,30 +31,33 @@ docker run --env-file .env -p 8000:8000 teste-local
 ```
 
 ### No Servidor (Deploy)
-Para baixar e rodar a imagem gerada pelo GitHub:
 
-1. **Login no Docker Registry** (Necessário se o pacote for Private):
-   Você precisará de um **Personal Access Token (PAT)** (Classic) com permissão `read:packages`.
+⚠️ **IMPORTANTE:** Para que o sistema funcione completo (com Evolution API, Redis, Postgres), você NÃO deve rodar apenas o container do Django isolado. Você precisa subir a stack completa.
+
+1. **Copie os arquivos para o servidor**:
+   Você vai precisar levar dois arquivos para o servidor:
+   - `.env` (com suas variáveis de produção)
+   - `docker-compose.production.yml` (que está neste repositório)
+
+2. **Login no Docker Registry** (Necessário se o pacote for Private):
    ```bash
    echo "SEU_CR_PAT" | docker login ghcr.io -u SEU_USUARIO_GITHUB --password-stdin
    ```
 
-2. **Baixar a imagem**:
+3. **Subir a aplicação completa**:
+   No diretório onde estão os arquivos `.env` e `docker-compose.production.yml`:
    ```bash
-   # Substitua SEU_USUARIO e SEU_REPO pelos valores reais (tudo minúsculo)
-   docker pull ghcr.io/seu_usuario/seu_repo:latest
+   # Baixa as imagens mais recentes
+   docker compose -f docker-compose.production.yml pull
+
+   # Sobe todos os serviços (Django + Evolution + Postgres + Redis)
+   docker compose -f docker-compose.production.yml up -d
    ```
 
-3. **Rodar o container**:
-   Atentar para passar as variáveis de ambiente necessárias.
-   ```bash
-   docker run -d \
-     --name django_app \
-     --restart always \
-     -p 8000:8000 \
-     --env-file .env \
-     ghcr.io/seu_usuario/seu_repo:latest
-   ```
+4. **Acessando os serviços**:
+   - **Django App**: `http://IP-DO-SERVIDOR:8000`
+   - **Evolution API**: `http://IP-DO-SERVIDOR:8080` (Se a porta estiver liberada no firewall)
+   - **PGAdmin**: `http://IP-DO-SERVIDOR:5050`
 
 ## 4. Erros Comuns e Troubleshooting
 

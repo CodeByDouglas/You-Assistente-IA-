@@ -1,0 +1,89 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: evolution
+      POSTGRES_DB: evolution
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: [ "redis-server", "--appendonly", "yes" ]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  evolution-api:
+    image: evoapicloud/evolution-api:v2.3.7
+    container_name: evolution_api
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - WEBHOOK_GLOBAL_URL=http://django_app:8000/webhook/
+    depends_on:
+      - postgres
+      - redis
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin4
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: root
+    ports:
+      - "5050:80"
+    volumes:
+       - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: redisinsight
+    restart: always
+    ports:
+      - "5540:5540"
+    volumes:
+       - redis_insight_data:/data
+    depends_on:
+      - redis
+
+  django_app:
+    # ATENÇÃO: Substitua 'codebydouglas' pelo seu usuário do GitHub se for diferente
+    image: ghcr.io/codebydouglas/you-assistente-ia:latest
+    container_name: django_app
+    restart: always
+    volumes:
+      # Monta o .env do host para garantir que as chaves de API estejam disponíveis
+      - ./.env:/app/.env
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DJANGO_DB_HOST=postgres
+      - DJANGO_REDIS_URL=redis://redis:6379/1
+      - SERVER_URL=http://evolution_api:8080
+    depends_on:
+      - postgres
+      - redis
+      - evolution-api
+
+volumes:
+  evolution_instances:
+  postgres_data:
+  redis_data:
+  pgadmin_data:
+  redis_insight_data:
