@@ -29,6 +29,8 @@ services:
       - "8080:8080"
     env_file:
       - .env
+    environment:
+      - WEBHOOK_GLOBAL_URL=http://django_app:8000/webhook/
     depends_on:
       - postgres
       - redis
@@ -57,6 +59,25 @@ services:
       - redis_insight_data:/data
     depends_on:
       - redis
+
+  django_app:
+    build: .
+    container_name: django_app
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DJANGO_DB_HOST=postgres
+      - DJANGO_REDIS_URL=redis://redis:6379/1
+      - SERVER_URL=http://evolution_api:8080
+    depends_on:
+      - postgres
+      - redis
+      - evolution-api
 
 volumes:
   evolution_instances:
