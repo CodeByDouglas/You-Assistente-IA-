@@ -49,6 +49,12 @@ def list_events(max_results=10, time_min=None, time_max=None):
             time_min = (
                 datetime.datetime.utcnow().isoformat() + "Z"
             )  # 'Z' indicates UTC time
+        elif not time_min.endswith("Z") and "+" not in time_min:
+             # Ensure 'Z' suffix for UTC if no timezone info is present in provided string
+             time_min += "Z"
+
+        if time_max and not time_max.endswith("Z") and "+" not in time_max:
+             time_max += "Z"
 
         query_params = {
             "calendarId": "primary",
